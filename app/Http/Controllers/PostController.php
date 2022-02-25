@@ -2,180 +2,103 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Image;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 
 class PostController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+
     public function index()
     {
-        $posts=Post::all();
-        return view('index')->with('posts',$posts);
+        $posts = Post::all();
+        return view('index')->with('posts', $posts);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function create()
     {
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
-        if($request->hasFile("cover")){
-            $file=$request->file("cover");
-            $imageName=time().'_'.$file->getClientOriginalName();
-            $file->move(\public_path("cover/"),$imageName);
+        $rules = [
+            'nombre' => 'required',
+            'descripcion' => 'required',
+            'url_imagen' => 'required',
+            'url_juego' => 'required',
+        ];
 
-            $post =new Post([
-                "title" =>$request->title,
-                "author" =>$request->author,
-                "body" =>$request->body,
-                "cover" =>$imageName,
-            ]);
-           $post->save();
-        }
+        $customMessages = [
+            'required' => 'Debe completar el campo :attribute.'
+        ];
 
-            if($request->hasFile("images")){
-                $files=$request->file("images");
-                foreach($files as $file){
-                    $imageName=time().'_'.$file->getClientOriginalName();
-                    $request['post_id']=$post->id;
-                    $request['image']=$imageName;
-                    $file->move(\public_path("/images"),$imageName);
-                    Image::create($request->all());
+        $this->validate($request, $rules, $customMessages);
 
-                }
-            }
-
-            return redirect("/");
-
+        $post = new Post([
+            "name" => $request->nombre,
+            "descrip" => $request->descripcion,
+            "urlimage" => $request->url_imagen,
+            "urlgame" => $request->url_juego,
+        ]);
+        $post->save();
+        return redirect("/")->with(['success' => 'Juego creado correctamente']);
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
-     */
+
     public function show(Post $post)
     {
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
-     */
+
     public function edit($id)
     {
-       $posts=Post::findOrFail($id);
-        return view('edit')->with('posts',$posts);
+        $posts = Post::findOrFail($id);
+        return view('edit')->with('posts', $posts);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request,$id)
+    public function update(Request $request, $id)
     {
-     $post=Post::findOrFail($id);
-     if($request->hasFile("cover")){
-         if (File::exists("cover/".$post->cover)) {
-             File::delete("cover/".$post->cover);
-         }
-         $file=$request->file("cover");
-         $post->cover=time()."_".$file->getClientOriginalName();
-         $file->move(\public_path("/cover"),$post->cover);
-         $request['cover']=$post->cover;
-     }
+        $post = Post::findOrFail($id);
+
+        $rules = [
+            'nombre' => 'required',
+            'descripcion' => 'required',
+            'url_imagen' => 'required',
+            'url_juego' => 'required',
+        ];
+
+        $customMessages = [
+            'required' => 'Debe completar el campo :attribute.'
+        ];
+
+        $this->validate($request, $rules, $customMessages);
 
         $post->update([
-            "title" =>$request->title,
-            "author"=>$request->author,
-            "body"=>$request->body,
-            "cover"=>$post->cover,
+            "name" => $request->nombre,
+            "descrip" => $request->descripcion,
+            "urlimage" => $request->url_imagen,
+            "urlgame" => $request->url_juego,
         ]);
-
-        if($request->hasFile("images")){
-            $files=$request->file("images");
-            foreach($files as $file){
-                $imageName=time().'_'.$file->getClientOriginalName();
-                $request["post_id"]=$id;
-                $request["image"]=$imageName;
-                $file->move(\public_path("images"),$imageName);
-                Image::create($request->all());
-
-            }
-        }
-
-        return redirect("/");
+        return redirect("/")->with(['success' => 'Juego actualizado correctamente']);
 
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\Post  $post
-     * @return \Illuminate\Http\Response
-     */
+    public function updateStatus(Request $request)
+    {
+        $post = Post::find($request->id);
+        $post->status = $request->status;
+        $post->save();
+        return response()->json(['success' => 'Status actualizado correctamente.']);
+    }
+
+
     public function destroy($id)
     {
-         $posts=Post::findOrFail($id);
-
-         if (File::exists("cover/".$posts->cover)) {
-             File::delete("cover/".$posts->cover);
-         }
-         $images=Image::where("post_id",$posts->id)->get();
-         foreach($images as $image){
-         if (File::exists("images/".$image->image)) {
-            File::delete("images/".$image->image);
-        }
-         }
-         $posts->delete();
-         return back();
-
-
+        $posts = Post::findOrFail($id);
+        $posts->delete();
+        return redirect("/")->with(['success' => 'Juego eliminado correctamente']);
     }
-
-    public function deleteimage($id){
-        $images=Image::findOrFail($id);
-        if (File::exists("images/".$images->image)) {
-           File::delete("images/".$images->image);
-       }
-
-       Image::find($id)->delete();
-       return back();
-   }
-
-   public function deletecover($id){
-    $cover=Post::findOrFail($id)->cover;
-    if (File::exists("cover/".$cover)) {
-       File::delete("cover/".$cover);
-   }
-   return back();
 }
 
-
-}
